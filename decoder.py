@@ -1,4 +1,5 @@
 
+import argparse
 import json
 
 from PIL import Image
@@ -66,10 +67,16 @@ class GBCameraDecoder:
          self.__tiles.append(self.decode_tile(hexstring))
  
 
-sample_image_file = open('./actual_images', 'r')
 
 # --scale 1 --display-only --read-file <file> --read-serial <device> --log-input
-
-gbcamera_decoder = GBCameraDecoder()
-for line in sample_image_file:
-   gbcamera_decoder.parse_line(line.strip())
+parser = argparse.ArgumentParser(description="Reads data from the Arduino Gameboy Printer Emulator and decodes it into image files.")
+parser.add_argument('-d', '--display-only', action='store_true', default=False, help='Only display images, do not save')
+group = parser.add_mutually_exclusive_group(required=True)
+group.add_argument('-s', '--read-serial', dest='serial_device', help='Read from serial device')
+group.add_argument('-f', '--input-file', help='Read from file')
+args = parser.parse_args()
+print(args)
+with open(args.input_file) as input_file:
+   gbcamera_decoder = GBCameraDecoder()
+   for line in input_file:
+      gbcamera_decoder.parse_line(line.strip())
