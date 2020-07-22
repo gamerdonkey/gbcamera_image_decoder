@@ -10,17 +10,22 @@ class GBCameraDecoder:
    TILE_HEIGHT = 8
    TILES_PER_LINE = 20
 
-   def __init__(self, display_only=False):
+   def __init__(self, display_only=False, scale=1):
       self.__tiles = []
       self.__timestamp = datetime.now().strftime("%Y.%m.%d-%H:%M")
       self.__output_counter = 0
 
       self.display_only = display_only
+      self.scale = scale
+
+      self.palette = []
+      for i in reversed(range(4)):
+         self.palette.append(Image.new('L', (scale, scale), color=i*85))
 
    def render_tiles_to_image(self, tiles):
       x_size = self.TILES_PER_LINE * self.TILE_WIDTH
       y_size = int(len(tiles) / 20) * self.TILE_HEIGHT
-      image = Image.new('L', (x_size, y_size))
+      image = Image.new('L', (x_size * self.scale, y_size * self.scale))
 
       tile_count = 0
       for tile in tiles:
@@ -28,7 +33,9 @@ class GBCameraDecoder:
             for j in range(self.TILE_WIDTH):
                x = j + (tile_count % self.TILES_PER_LINE) * self.TILE_WIDTH
                y = i + int(tile_count / self.TILES_PER_LINE) * self.TILE_HEIGHT
-               image.putpixel((x, y), (3-tile[i][j]) * 85)
+               # image.putpixel((x, y), (3-tile[i][j]) * 85)
+               # image.paste(((3-tile[i][j]) * 85), (x * scale, y * scale, scale, scale))
+               image.paste(self.palette[tile[i][j]], (x * self.scale, y * self.scale))
          tile_count += 1
       return image
 
@@ -81,12 +88,13 @@ class GBCameraDecoder:
 # --scale 1 --display-only --read-file <file> --read-serial <device> --log-input
 parser = argparse.ArgumentParser(description="Reads data from the Arduino Gameboy Printer Emulator and decodes it into image files.")
 parser.add_argument('-d', '--display-only', action='store_true', default=False, help='Only display images, do not save')
+parser.add_argument('-x', '--scale', type=int, default=1, help='Scale images by multiplier. 1-3 work best.')
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument('-s', '--read-serial', dest='serial_device', help='Read from serial device')
 group.add_argument('-f', '--input-file', help='Read from file')
 args = parser.parse_args()
 print(args)
 with open(args.input_file) as input_file:
-   gbcamera_decoder = GBCameraDecoder(display_only = args.display_only)
+   gbcamera_decoder = GBCameraDecoder(display_only=args.display_only, scale=args.scale)
    for line in input_file:
       gbcamera_decoder.parse_line(line.strip())
