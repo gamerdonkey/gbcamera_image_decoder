@@ -2,6 +2,7 @@
 import argparse
 import json
 
+from datetime import datetime
 from PIL import Image
 
 class GBCameraDecoder:
@@ -9,8 +10,12 @@ class GBCameraDecoder:
    TILE_HEIGHT = 8
    TILES_PER_LINE = 20
 
-   def __init__(self):
+   def __init__(self, display_only=False):
       self.__tiles = []
+      self.__timestamp = datetime.now().strftime("%Y.%m.%d-%H:%M")
+      self.__output_counter = 0
+
+      self.display_only = display_only
 
    def render_tiles_to_image(self, tiles):
       x_size = self.TILES_PER_LINE * self.TILE_WIDTH
@@ -54,7 +59,12 @@ class GBCameraDecoder:
             if(data['command'] == 'INIT'):
                self.__tiles = []
             if(data['command'] == 'PRNT'):
-               self.render_tiles_to_image(self.__tiles).show()
+               image = self.render_tiles_to_image(self.__tiles)
+               if(self.display_only):
+                  image.show()
+               else:
+                  image.save('{}-{:04d}.png'.format(self.__timestamp, self.__output_counter))
+                  self.__output_counter += 1
 
       else:
          hexstring = line.replace(' ', '')
@@ -77,6 +87,6 @@ group.add_argument('-f', '--input-file', help='Read from file')
 args = parser.parse_args()
 print(args)
 with open(args.input_file) as input_file:
-   gbcamera_decoder = GBCameraDecoder()
+   gbcamera_decoder = GBCameraDecoder(display_only = args.display_only)
    for line in input_file:
       gbcamera_decoder.parse_line(line.strip())
