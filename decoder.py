@@ -12,7 +12,7 @@ class GBCameraDecoder:
 
    def __init__(self, display_only=False, scale=1):
       self.__tiles = []
-      self.__timestamp = datetime.now().strftime("%Y.%m.%d-%H:%M")
+      self.__timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
       self.__output_counter = 0
 
       self.display_only = display_only
@@ -33,8 +33,6 @@ class GBCameraDecoder:
             for j in range(self.TILE_WIDTH):
                x = j + (tile_count % self.TILES_PER_LINE) * self.TILE_WIDTH
                y = i + int(tile_count / self.TILES_PER_LINE) * self.TILE_HEIGHT
-               # image.putpixel((x, y), (3-tile[i][j]) * 85)
-               # image.paste(((3-tile[i][j]) * 85), (x * scale, y * scale, scale, scale))
                image.paste(self.palette[tile[i][j]], (x * self.scale, y * self.scale))
          tile_count += 1
       return image
