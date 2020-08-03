@@ -1,6 +1,7 @@
 
 import argparse
 import json
+import serial
 
 from datetime import datetime
 from PIL import Image
@@ -10,12 +11,14 @@ class GBCameraDecoder:
    TILE_HEIGHT = 8
    TILES_PER_LINE = 20
 
-   def __init__(self, display_only=False, scale=1):
+   def __init__(self, display_only=False, scale=1, log=False):
       self.__tiles = []
+      self.__lines_since_init = []
       self.__timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
       self.__output_counter = 0
 
       self.display_only = display_only
+      self.log = log
       self.scale = scale
 
       self.palette = []
@@ -54,6 +57,8 @@ class GBCameraDecoder:
       return tile
 
    def parse_line(self, line):
+      self.__lines_since_init.append(line)
+
       if(len(line) == 0 or line[0] == '#'):
          return
 
@@ -63,12 +68,17 @@ class GBCameraDecoder:
          if('command' in data):
             if(data['command'] == 'INIT'):
                self.__tiles = []
+               self.__lines_since_init = [line]
             if(data['command'] == 'PRNT'):
                image = self.render_tiles_to_image(self.__tiles)
                if(self.display_only):
                   image.show()
                else:
-                  image.save('{}-{:04d}.png'.format(self.__timestamp, self.__output_counter))
+                  filename = '{}-{:04d}'.format(self.__timestamp, self.__output_counter)
+                  image.save(filename + '.png')
+                  if(self.log):
+                     with open(filename + '.txt', 'w') as output_file:
+                        output_file.write('\n'.join(self.__lines_since_init))
                   self.__output_counter += 1
 
       else:
@@ -85,14 +95,28 @@ class GBCameraDecoder:
 
 # --scale 1 --display-only --read-file <file> --read-serial <device> --log-input
 parser = argparse.ArgumentParser(description="Reads data from the Arduino Gameboy Printer Emulator and decodes it into image files.")
+
 parser.add_argument('-d', '--display-only', action='store_true', default=False, help='Only display images, do not save')
+parser.add_argument('-l', '--log-input', action='store_true', default=False, help='Creates a text file with serial data for each image processed')
 parser.add_argument('-x', '--scale', type=int, default=1, help='Scale images by multiplier. 1-3 work best.')
+
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument('-s', '--read-serial', dest='serial_device', help='Read from serial device')
 group.add_argument('-f', '--input-file', help='Read from file')
+
 args = parser.parse_args()
-print(args)
-with open(args.input_file) as input_file:
-   gbcamera_decoder = GBCameraDecoder(display_only=args.display_only, scale=args.scale)
-   for line in input_file:
-      gbcamera_decoder.parse_line(line.strip())
+
+gbcamera_decoder = GBCameraDecoder(display_only=args.display_only, scale=args.scale, log=args.log_input)
+
+if(args.input_file):
+   with open(args.input_file) as input_file:
+      for line in input_file:
+         gbcamera_decoder.parse_line(line.strip())
+elif(args.serial_device):
+   with serial.Serial(args.serial_device, 115200, timeout=30) as ser:
+      print('Opened serial device...')
+      line = ser.readline()
+      while(line):
+         gbcamera_decoder.parse_line(line.decode().strip())
+         line = ser.readline()
+      print('Timeout reached.')
